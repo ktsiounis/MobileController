@@ -1,46 +1,43 @@
 package com.example.konstantinos.mobilecontroller;
 
-import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
-    ListView devicelist;
+    static ListView devicelist;
     Button paired;
-    private BluetoothAdapter mBluetooth;
+    private static BluetoothAdapter mBluetooth;
     private Set<BluetoothDevice> pairedDevices;
-    private String address;
+    public String address;
     BluetoothSocket btSocket = null;
     private boolean isBtConnected = false;
     static final UUID myUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-    private ArrayAdapter mArrayAdapter;
+    private static ArrayAdapter mArrayAdapter;
+    private static ArrayList list = new ArrayList();
 
 
     @Override
@@ -50,7 +47,6 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         mBluetooth = BluetoothAdapter.getDefaultAdapter();
-        devicelist = (ListView)findViewById(R.id.deviceList);
 
 
         if(mBluetooth == null){
@@ -68,28 +64,23 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(turnBTon,1);
             }
         }
-
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mReceiver, filter);
 
     }
 
     // Create a BroadcastReceiver for ACTION_FOUND
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    private static final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
 
-            if(BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)){
-                Log.v("discover","started");
-            }
-
             // When discovery finds a device
-            else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                Log.v("START","receiver");
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 // Get the BluetoothDevice object from the Intent
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 // Add the name and address to an array adapter to show in a ListView
-                mArrayAdapter.add(device.getName() + "\n" + device.getAddress());
-                Log.v("device",device.getName() + "\n" + device.getAddress());
+                list.add(device.getName() + "\n" + device.getAddress());
             }
         }
     };
@@ -113,94 +104,100 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         else if (id == R.id.action_connect){
-            Toast.makeText(MainActivity.this,"Try to connect",Toast.LENGTH_LONG).show();
             pairedDevices = mBluetooth.getBondedDevices();
-            final ArrayList list = new ArrayList();
 
             if(pairedDevices.size()>0){
                 for(BluetoothDevice bt : pairedDevices)
                 {
                     list.add(bt.getName() + "\n" + bt.getAddress()); //Get the device's name and the address
                 }
-                ArrayAdapter adapter = new ArrayAdapter(this,android.R.layout.simple_list_item_1, list);
-                devicelist.setAdapter(adapter);
-                devicelist.setOnItemClickListener(new AdapterView.OnItemClickListener()
-                {
-                    public void onItemClick (AdapterView av, View v, int arg2, long arg3)
-                    {
-                        // Get the device MAC address, the last 17 chars in the View
-                        String info = ((TextView) v).getText().toString();
-                        String address = info.substring(info.length() - 17);
+                String[] listArr = new String[list.size()];
+                list.toArray(listArr);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Choose Device");
+                builder.setItems(listArr, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        address = (list.get(i).toString()).substring((list.get(i).toString()).length() - 17);
+                        Log.v("DIALOG", address);
                     }
-                }); //Method called when the device from the list is clicked
+                });
+                AlertDialog dialog = builder.create();
+                dialog.show();
             }
-            else{
+            else {
                 mBluetooth.startDiscovery();
 
-                IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-                IntentFilter filter2 = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-                registerReceiver(mReceiver, filter);
-                registerReceiver(mReceiver, filter2);
+                String[] listArr = new String[list.size()];
+                list.toArray(listArr);
 
-                mArrayAdapter = new ArrayAdapter(this,android.R.layout.simple_list_item_1);
-                devicelist.setAdapter(mArrayAdapter);
-                devicelist.setOnItemClickListener(new AdapterView.OnItemClickListener()
-                {
-                    public void onItemClick (AdapterView av, View v, int arg2, long arg3)
-                    {
-                        // Get the device MAC address, the last 17 chars in the View
-                        String info = ((TextView) v).getText().toString();
-                        String address = info.substring(info.length() - 17);
-                    }
-                }); //Method called when the device from the list is clicked
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Choose Device");
+                if(list.size() == 0){
+                    builder.setMessage("There is no available devices");
+                }
+                else {
+                    builder.setItems(listArr, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            address = (list.get(i).toString()).substring((list.get(i).toString()).length()-17);
+                            Log.v("DIALOG", address);
+                            ConnectBT connection = new ConnectBT(address);
+                            connection.run();
+                        }
+                    });
+                }
+                AlertDialog dialog = builder.create();
+                dialog.show();
             }
         }
+
 
         return super.onOptionsItemSelected(item);
     }
 
-    private class ConnectBT extends AsyncTask<Void, Void, Void>  // UI thread
-    {
-        private boolean ConnectSuccess = true; //if it's here, it's almost connected
+    private class ConnectBT extends Thread {
+        private final BluetoothSocket mmSocket;
+        private final BluetoothDevice mmDevice;
 
+        public ConnectBT(String address) {
+            // Use a temporary object that is later assigned to mmSocket
+            // because mmSocket is final.
+            BluetoothSocket tmp = null;
+            mmDevice = mBluetooth.getRemoteDevice(address);;
 
-
-        @Override
-        protected Void doInBackground(Void... devices) //while the progress dialog is shown, the connection is done in background
-        {
-            try
-            {
-                if (btSocket == null || !isBtConnected)
-                {
-                    mBluetooth = BluetoothAdapter.getDefaultAdapter();//get the mobile bluetooth device
-                    BluetoothDevice dispositivo = mBluetooth.getRemoteDevice(address);//connects to the device's address and checks if it's available
-                    btSocket = dispositivo.createInsecureRfcommSocketToServiceRecord(myUUID);//create a RFCOMM (SPP) connection
-                    BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
-                    btSocket.connect();//start connection
-                }
+            try {
+                // Get a BluetoothSocket to connect with the given BluetoothDevice.
+                // MY_UUID is the app's UUID string, also used in the server code.
+                tmp = mmDevice.createInsecureRfcommSocketToServiceRecord(myUUID);
+            } catch (IOException e) {
+                Log.e("FAIL", "Socket's create() method failed", e);
             }
-            catch (IOException e)
-            {
-                ConnectSuccess = false;//if the try failed, you can check the exception here
-            }
-            return null;
+            mmSocket = tmp;
         }
-        @Override
-        protected void onPostExecute(Void result) //after the doInBackground, it checks if everything went fine
+
+        public void run() //while the progress dialog is shown, the connection is done in background
         {
-            super.onPostExecute(result);
+            mBluetooth.cancelDiscovery();
 
-            if (!ConnectSuccess)
-            {
-                Toast.makeText(getApplicationContext(),"Connection Failed. Is it a SPP Bluetooth? Try again.",Toast.LENGTH_LONG).show();
-                finish();
+            try {
+                // Connect to the remote device through the socket. This call blocks
+                // until it succeeds or throws an exception.
+                mmSocket.connect();
+                Log.v("Connected", "connected");
+                Toast.makeText(getApplicationContext(),"Connected",Toast.LENGTH_LONG);
+            } catch (IOException connectException) {
+                // Unable to connect; close the socket and return.
+                Toast.makeText(getApplicationContext(),"Connection Failed",Toast.LENGTH_LONG);
+                try {
+                    mmSocket.close();
+                    Log.v("Connected", "socket closed");
+                } catch (IOException closeException) {
+                    Log.e("FAIL", "Could not close the client socket", closeException);
+                }
+                //return;
             }
-            else
-            {
-                Toast.makeText(getApplicationContext(),"Connected.",Toast.LENGTH_LONG).show();
-                isBtConnected = true;
-            }
-
         }
     }
 
