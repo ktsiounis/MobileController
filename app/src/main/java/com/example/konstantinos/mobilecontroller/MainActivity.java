@@ -18,6 +18,8 @@ import android.view.MenuItem;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
@@ -38,6 +40,9 @@ public class MainActivity extends AppCompatActivity {
     static final UUID myUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static ArrayAdapter mArrayAdapter;
     private static ArrayList list = new ArrayList();
+    private SeekBar seekBar;
+    private TextView textView;
+    private int speed;
 
 
     @Override
@@ -47,6 +52,26 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         mBluetooth = BluetoothAdapter.getDefaultAdapter();
+        seekBar = (SeekBar) findViewById(R.id.seekBar);
+        textView = (TextView) findViewById(R.id.textView);
+
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                speed = progress;
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
 
 
         if(mBluetooth == null){
